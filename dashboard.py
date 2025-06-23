@@ -2,57 +2,88 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-from transformers import BertTokenizer, BertForSequenceClassification
-
-CATEGORIES = {
-
-0: "Utilities",
-1: "Health",
-2: "Dining",
-3: "Travel",
-4: "Education",
-5: "Subscription",
-6: "Family",
-7: "Food",
-8: "Festivals",
-9: "Culture",
-10: "Apparel",
-11: "Transportation",
-12: "Investment",
-13: "Shopping",
-14: "Groceries",
-15: "Documents",
-16: "Grooming",
-17: "Entertainment",
-18: "Social Life",
-19: "Beauty",
-20: "Rent",
-21: "Money transfer",
-22: "Salary",
-23: "Tourism",
-24: "Household",
+# 1. Replaced the ML model with the extensive rule-based dictionary.
+CATEGORY_RULES = {
+    'Dining': [
+        'restaurant', 'cafe', 'bistro', 'grill', 'diner', 'eatery', 'bar & grill',
+        'pub', 'sushi', 'pizza', 'tacos', 'coffee', 'bakery', 'deli', 'meal',
+        'dining', 'lunch', 'dinner', 'breakfast', 'brunch', 'takeout', 'takeaway',
+        'foodpanda', 'eat', 'brewery', 'steakhouse', 'teriyaki', 'juice bar',
+        'ice cream', 'yogurt', 'mcdonald\'s', 'starbucks', 'burger king', 'subway',
+        'taco bell', 'kfc', 'pizza hut', 'domino\'s', 'chipotle', 'panera bread',
+        'dunkin\'', 'wendy\'s', 'chick-fil-a', 'arby\'s', 'popeyes', 'doordash',
+        'grubhub', 'uber eats', 'postmates', 'seamless', 'the cheesecake factory',
+        'olive garden', 'red lobster', 'applebee\'s', 'ihop', 'denny\'s', 'tgi fridays',
+        'buffalo wild wings', "taco", "jack in the box", "carl's jr", "little ca", "raising canes"
+    ],
+    'Entertainment': [
+        'entertainment', 'theater', 'cinema', 'movies', 'concert', 'ticket', 'show',
+        'event', 'stadium', 'arena', 'museum', 'gallery', 'park', 'amusement',
+        'bowling', 'golf', 'club', 'bar', 'lounge', 'nightclub', 'live music',
+        'festival', 'gaming', 'arcade', 'sports', 'streaming', 'subscription',
+        'netflix', 'hulu', 'disney+', 'spotify', 'apple music', 'youtube premium',
+        'hbo max', 'amazon prime video', 'fandango', 'ticketmaster', 'live nation',
+        'seatgeek', 'amc theatres', 'regal cinemas', 'cinemark', 'topgolf',
+        'dave & buster\'s', 'espn+', 'peacock', 'paramount+', 'siriusxm', 'audible',
+        'steam games', 'playstation', 'xbox', 'nintendo', "chatgpt"
+    ],
+    'Transportation': [
+        'transport', 'transit', 'taxi', 'cab', 'ride', 'lyft', 'uber', 'ola',
+        'grab', 'didi', 'bus', 'subway', 'metro', 'train', 'rail', 'airline',
+        'flight', 'airways', 'gas', 'fuel', 'petrol', 'station', 'parking',
+        'garage', 'toll', 'rental car', 'scooter', 'bike share', 'mta', 'bart',
+        'amtrak', 'greyhound', 'spirit airlines', 'american air', 'delta air',
+        'united air', 'southwest air', 'jetblue', 'alaska air', 'hertz', 'avis',
+        'enterprise', 'national car rental', 'shell', 'chevron', 'mobil', 'exxon',
+        'bp', '76', 'sunoco', 'lime', 'bird', 'citibike', 'fastrak', 'ez-pass'
+    ],
+    'Groceries': [
+        'grocery', 'market', 'supermarket', 'produce', 'organic', 'farm',
+        'butcher', 'seafood', 'groceries', 'kroger', 'safeway', 'albertsons',
+        'publix', 'trader joe\'s', 'whole foods', 'walmart neighborhood market',
+        'target grocery', 'costco', 'sam\'s club', 'aldi', 'lidl', 'sprouts',
+        'instacart', 'shipt', 'freshdirect', 'amazon fresh', 'ralphs', 'vons',
+        'harris teeter', 'wegmans', 'food lion', 'giant', 'stop & shop', 'food4less',
+    ],
+    'Shopping': [
+        'shop', 'store', 'boutique', 'retail', 'department store', 'clothing',
+        'apparel', 'shoes', 'accessories', 'electronics', 'books', 'gifts',
+        'home goods', 'furniture', 'pharmacy', 'drugstore', 'mall', 'outlet',
+        'purchase', 'order', 'amazon', 'amzn', 'target', 'walmart', 'best buy',
+        'apple', 'microsoft store', 'macy\'s', 'nordstrom', 'kohl\'s', 'j.c. penney',
+        'gap', 'old navy', 'banana republic', 'h&m', 'zara', 'uniqlo', 'sephora',
+        'ulta', 'cvs', 'walgreens', 'rite aid', 'the home depot', 'lowe\'s',
+        'ikea', 'bed bath & beyond', 'etsy', 'ebay', 'nike', 'adidas'
+    ],
+    'Money Transfers': [
+        'venmo', 'cash app', 'zelle', 'paypal', 'xoom', 'sent', 'received', 'p2p',
+        'e-transfer', 'wire', 'remittance', 'deposit', 'withdrawal', 'atm',
+        'western union', 'moneygram', 'wise', 'remitly', 'worldremit',
+        'popmoney', 'google pay', 'apple cash', 'transfer', "irs", "internet payment", "cashback"
+    ],
+    "Investments": ["robinhood", "etrade", "fidelity", "vanguard", "schwab", "td ameritrade", "merrill lynch", "interactive brokers", "sofi invest", "acorns", "stash", "wealthfront", "betterment", "crypto", "bitcoin", "ethereum", "coinbase", "binance", "kraken"],
+    "Loan": ["student ln", "discover e-payment"]
 }
 
+# 2. Replaced the complex model prediction with a simple, fast, rule-based function.
+def category_prediction(description: str) -> str:
+    """
+    Categorizes a transaction based on a set of rules.
+    """
+    if not isinstance(description, str):
+        return 'Uncategorized'
 
-model_name = "kuro-08/bert-transaction-categorization"
-tokenizer = BertTokenizer.from_pretrained(model_name)
-model = BertForSequenceClassification.from_pretrained(model_name)
+    lower_description = description.lower()
 
-def category_prediction(text: str) -> str:
-    transaction = f"Transaction: {text}"
+    for category, keywords in CATEGORY_RULES.items():
+        for keyword in keywords:
+            if keyword in lower_description:
+                return category
 
-    inputs = tokenizer(transaction, return_tensors="pt", truncation=True, padding=True)
-
-    outputs = model(**inputs)
-    logits = outputs.logits
-    predicted_category = logits.argmax(-1).item()
-
-    
-    return CATEGORIES[predicted_category]
+    return 'Uncategorized'
 
 
-
-st.set_page_config(page_title="Personal Expense Dashboard", page_icon="./black-logo.png")
+st.set_page_config(page_title="Personal Expense Dashboard", page_icon="🧾")
 
 def parse_wells_fargo(file) -> any:
     try:
@@ -60,20 +91,19 @@ def parse_wells_fargo(file) -> any:
         df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%Y", errors="coerce").dt.date
         df["Amount"] = (
             df["Amount"]
-            .str.replace(r"[\$,]", "", regex=True)
+            .str.replace(r"[$,]", "", regex=True)
             .astype(float)
         )
         
-        # 4. Label each transaction as 'expense' or 'surplus'
         df["Type"] = df["Amount"].apply(lambda x: "expense" if x < 0 else "surplus")
-        df["Category"] = df["Description"].apply(lambda x: category_prediction(x) if pd.notna(x) else "Unknown")
+        # The new categorization function is called here
+        df["Category"] = df["Description"].apply(lambda x: category_prediction(x) if pd.notna(x) else "Uncategorized")
         
-        # Drop unnecessary columns
         df = df.drop(columns=["Status", "Check_Number"])
         
         return df
     except Exception as e:
-        print(f"Error parsing Wells Fargo CSV: {e}")
+        st.error(f"Error parsing Wells Fargo CSV: {e}")
         return None
     
 def parse_discover_csv(file) -> any:
@@ -84,61 +114,52 @@ def parse_discover_csv(file) -> any:
         df["Date"] = pd.to_datetime(df["Date"], format="%m/%d/%Y", errors="coerce").dt.date
         df["Amount"] = (
             df["Amount"]
-            .str.replace(r"[\$,]", "", regex=True)
+            .str.replace(r"[$,]", "", regex=True)
             .astype(float)
         )
         
-        # 4. Label each transaction as 'expense' or 'surplus'
         df["Type"] = df["Amount"].apply(lambda x: "expense" if x > 0 else "surplus")
+        # 3. Added the categorization to the Discover parser as well.
+        df["Category"] = df["Description"].apply(lambda x: category_prediction(x) if pd.notna(x) else "Uncategorized")
 
         return df 
     except Exception as e:
-        print(f"Error reading Discover CSV: {e}")
+        st.error(f"Error reading Discover CSV: {e}")
         return None
 
 def start_dashboard():
     st.title("Personal Finance Dashboard")
-    # Bank selection dropdown
     bank = st.selectbox("Select Your Bank", ["Wells Fargo", "Discover"])
-
     statement = st.file_uploader("Please Upload Your Monthly Statements", type=['csv'])
 
-    if bank == "Wells Fargo" and statement is not None:
-        df = parse_wells_fargo(statement)
-        if df is not None:
-            st.write("### Transaction Data")
-            st.dataframe(df)
+    df = None
+    if statement is not None:
+        if bank == "Wells Fargo":
+            df = parse_wells_fargo(statement)
+        elif bank == "Discover":
+            df = parse_discover_csv(statement)
 
-            # Display total expenses and surplus
-            total_expenses = df[df["Type"] == "expense"]["Amount"].sum()
-            total_surplus = df[df["Type"] == "surplus"]["Amount"].sum()
+    if df is not None:
+        st.write("### Transaction Data")
+        st.dataframe(df)
 
-            st.write(f"**Total Expenses:** ${total_expenses:.2f}")
-            st.write(f"**Total Surplus:** ${total_surplus:.2f}")
+        total_expenses = df[df["Type"] == "expense"]["Amount"].sum()
+        total_surplus = df[df["Type"] == "surplus"]["Amount"].sum()
 
-            # Plotting the data
-            fig = px.bar(df, x="Date", y="Amount", color="Type", title="Monthly Transactions")
-            st.plotly_chart(fig)
+        st.write(f"**Total Expenses:** ${abs(total_expenses):.2f}")
+        st.write(f"**Total Surplus:** ${total_surplus:.2f}")
 
-    elif bank == "Discover" and statement is not None:
-        df = parse_discover_csv(statement)
-        if df is not None:
-            st.write("### Transaction Data")
-            st.dataframe(df)
+        st.write("### Expense Breakdown")
+        expense_df = df[df['Type'] == 'expense'].copy()
+        expense_df['Amount'] = expense_df['Amount'].abs()
+        category_expenses = expense_df.groupby('Category')['Amount'].sum().reset_index()
 
-            # Display total expenses and surplus
-            total_expenses = df[df["Type"] == "expense"]["Amount"].sum()
-            total_surplus = df[df["Type"] == "surplus"]["Amount"].sum()
+        fig_pie = px.pie(category_expenses, values='Amount', names='Category', title='Expense by Category')
+        st.plotly_chart(fig_pie)
+        
+        fig_bar = px.bar(df, x="Date", y="Amount", color="Type", title="Daily Transactions")
+        st.plotly_chart(fig_bar)
 
-            st.write(f"**Total Expenses:** ${total_expenses:.2f}")
-            st.write(f"**Total Surplus:** ${total_surplus:.2f}")
-
-            # Plotting the data
-            fig = px.bar(df, x="Date", y="Amount", color="Type", title="Monthly Transactions")
-            st.plotly_chart(fig)
 
 if __name__ == "__main__":
     start_dashboard()
-# This code is a Streamlit application that serves as a personal finance dashboard.
-# It allows users to upload their monthly bank statements and visualize their expenses and surplus.
-# The application currently supports Wells Fargo CSV statements and has a placeholder for Discover CSV parsing.
